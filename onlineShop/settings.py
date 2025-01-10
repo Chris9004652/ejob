@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-balk56+pxr!n+=7o2s)6^@^tjmn7*c$6*2()v84hynos2^3ekv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [ '127.0.0.1', ]
+ALLOWED_HOSTS = [ '*' ]
 
 # Application definition
 
@@ -77,12 +77,27 @@ WSGI_APPLICATION = 'onlineShop.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if os.getenv('USE_POSTGRES', 'False') == 'True':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'postgres',  # Supabase database name
+            'USER': 'postgres',  # Supabase database user
+            'PASSWORD': 'hhz3J.@#.wJHcWh',  # Your Supabase password
+            'HOST': 'db.uysytidvdjxukesrmiao.supabase.co',  # Supabase host
+            'PORT': '5432',  # Default PostgreSQL port
+        }
     }
-}
+
+
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
