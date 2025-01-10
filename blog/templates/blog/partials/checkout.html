@@ -1,0 +1,136 @@
+{% extends 'blog/parents/base.html' %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<div class="container col-7 my-5">
+    <div class="row">
+        <!-- Cart Section -->
+        <div class="col-md-4 order-md-2 mb-4">
+            <h4 class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">Your cart</span>
+                <span class="badge badge-secondary badge-pill">{{ order.get_total_products }}</span>
+            </h4>
+            <ul class="list-group mb-3">
+                {% for item in items %}
+                    <li class="list-group-item d-flex justify-content-between lh-condensed">
+                        <div>
+                            <h6 class="my-0">{{ item.product.title }} x {{ item.quantity }}</h6>
+                            <small class="text-muted">{{ item.product.description|truncatechars:20 }}</small>
+                        </div>
+                        <span class="text-muted">₦{{ item.get_total_price|floatformat:2 }}</span>
+                    </li>
+                {% endfor %}
+                {% if order.coupons %}
+                <li class="list-group-item d-flex justify-content-between bg-light">
+                    <div class="text-success">
+                        <h6 class="my-0">Promo code</h6>
+                        <small>{{ order.coupons.code }}</small>
+                    </div>
+                    <span class="text-success">-₦{{ order.coupons.discount }}</span>
+                </li>
+                {% endif %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Shipping Fee</span>
+                    <strong>₦{{ shipping_fee|floatformat:2 }}</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>Total (NGN)</span>
+                    <strong>₦{{ total_price|floatformat:2 }}</strong>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Billing Section -->
+        <div class="col-md-8 order-md-1">
+            <h4 class="mb-3">Billing address</h4>
+            <form class="needs-validation" method="POST" novalidate action="https://checkout.flutterwave.com/v3/hosted/pay">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="firstName">First name</label>
+                        <input type="text" class="form-control" id="firstName" value="{{ customer.first_name }}" readonly required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="lastName">Last name</label>
+                        <input type="text" class="form-control" id="lastName" value="{{ customer.last_name }}" readonly required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="phone">Phone</label>
+                    <input type="number" class="form-control" id="phone" value="{{ customer.phone }}" name="[customer_phone]" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control" id="email" value="{{ customer.email }}" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="address">Address</label>
+                    <input type="text" class="form-control" id="address" name="[customer_address]" value="{{ customer.address }}" readonly required>
+                </div>
+                <!-- Hidden Inputs for Payment -->
+                <input type="hidden" name="public_key" value="FLWPUBK-9ed41a52f70aa668e4df3a86a7be2509-X">
+                <input type="hidden" name="tx_ref" value="{{ tx_ref }}">
+                <input type="hidden" name="amount" value="{{ total_price|floatformat:2 }}">
+                <input type="hidden" name="currency" value="NGN">
+                <input type="hidden" name="customer[email]" value="{{ customer.email }}">
+                <input type="hidden" name="customer[name]" value="{{ customer.first_name }} {{ customer.last_name }}">
+                <input type="hidden" name="redirect_url" value="https://yourdomain.com/payment-callback">
+                <button class="btn btn-primary btn-lg btn-block" type="submit">Proceed to Payment</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Callback Script -->
+<script>
+const Recipient = require("mailersend").Recipient;
+const EmailParams = require("mailersend").EmailParams;
+const MailerSend = require("mailersend");
+
+const mailersend = new MailerSend({
+    apiKey: "mlsn.4ced9f6ec1b34bedde93dcf9f3efcd1258771cc1ccd111e678cc248bf557a524",
+});
+
+const emailParams = new EmailParams()
+    .setFrom("anazobaemmanuel367@gmail.com")
+    .setFromName("EBUKA Business ")
+    .setRecipients([new Recipient("{{ customer.email }}", "{{ customer.first_name }}")])
+    .setSubject("Order Confirmation")
+    .setTemplateId("k68zxl2q7r9lj905")
+    .setVariables([
+        {
+            email: "{{ customer.email }}",
+            substitutions: [
+                { var: "name", value: "{{ customer.first_name }}" },
+                { var: "address", value: "{{ customer.address }}" },
+                { var: "products", value: "{{ items|join(', ') }}" },
+                { var: "total_price", value: "₦{{ total_price|floatformat:2 }}" }
+            ],
+        }
+    ]);
+
+app.get('/payment-callback', async (req, res) => {
+    const { status, tx_ref, transaction_id } = req.query;
+
+    if (status === "successful") {
+        try {
+            const transactionDetails = await Transaction.findOne({ ref: tx_ref });
+            const response = await flw.Transaction.verify({ id: transaction_id });
+
+            if (response.data.status === "successful" && response.data.amount === transactionDetails.amount) {
+                mailersend.send(emailParams);
+                res.redirect(`/payment_success?tx_ref=${tx_ref}`);
+            } else {
+                res.redirect(`/payment_error?tx_ref=${tx_ref}`);
+            }
+        } catch (error) {
+            console.error("Error verifying transaction:", error);
+            res.redirect("/payment_error");
+        }
+    } else {
+        res.redirect("/payment_error");
+    }
+});
+</script>
+{% endblock %}
