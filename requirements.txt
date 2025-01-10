@@ -14,7 +14,9 @@ Naked==0.1.32
 paystack-python==0.1
 paystackapi==2.1.3
 pillow==11.1.0
-pycrypto==2.6.1
+psycopg2==2.9.10
+psycopg2-binary==2.9.10
+pycryptodome==3.21.0
 PyYAML==6.0.2
 requests==2.32.3
 shellescape==3.8.1
@@ -22,4 +24,3 @@ sqlparse==0.5.3
 swapper==1.4.0
 urllib3==2.3.0
 whitenoise==6.8.2
-psycopg2-binary
