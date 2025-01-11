@@ -84,53 +84,70 @@
 
 <!-- Payment Callback Script -->
 <script>
-const Recipient = require("mailersend").Recipient;
-const EmailParams = require("mailersend").EmailParams;
-const MailerSend = require("mailersend");
-
-const mailersend = new MailerSend({
-    apiKey: "mlsn.4ced9f6ec1b34bedde93dcf9f3efcd1258771cc1ccd111e678cc248bf557a524",
-});
-
-const emailParams = new EmailParams()
-    .setFrom("anazobaemmanuel367@gmail.com")
-    .setFromName("EBUKA Business ")
-    .setRecipients([new Recipient("{{ customer.email }}", "{{ customer.first_name }}")])
-    .setSubject("Order Confirmation")
-    .setTemplateId("k68zxl2q7r9lj905")
-    .setVariables([
-        {
-            email: "{{ customer.email }}",
-            substitutions: [
-                { var: "name", value: "{{ customer.first_name }}" },
-                { var: "address", value: "{{ customer.address }}" },
-                { var: "products", value: "{{ items|join(', ') }}" },
-                { var: "total_price", value: "₦{{ total_price|floatformat:2 }}" }
-            ],
-        }
-    ]);
-
-app.get('/payment-callback', async (req, res) => {
-    const { status, tx_ref, transaction_id } = req.query;
-
-    if (status === "successful") {
+    const sendConfirmationEmail = async (customerEmail, txRef, customerName, totalPrice, productsList) => {
         try {
-            const transactionDetails = await Transaction.findOne({ ref: tx_ref });
-            const response = await flw.Transaction.verify({ id: transaction_id });
+            const response = await fetch("https://api.mailersend.com/v1/email", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer your-mailersend-api-key",
+                },
+                body: JSON.stringify({
+                    from: {
+                        email: "anazobaemmanuel367@gmail.com"
+                    },
+                    to: [
+                        { email: customerEmail }
+                    ],
+                    personalization: [{
+                        email: customerEmail,
+                        data: {
+                            name: customerName,
+                            tx_ref: txRef,
+                            products: productsList,
+                            total_price: totalPrice,
+                        }
+                    }],
+                    template_id: "k68zxl2q7r9lj905"
+                }),
+            });
 
-            if (response.data.status === "successful" && response.data.amount === transactionDetails.amount) {
-                mailersend.send(emailParams);
-                res.redirect(`/payment_success?tx_ref=${tx_ref}`);
+            if (response.ok) {
+                console.log("Confirmation email sent successfully.");
             } else {
-                res.redirect(`/payment_error?tx_ref=${tx_ref}`);
+                console.error("Failed to send confirmation email.");
             }
         } catch (error) {
-            console.error("Error verifying transaction:", error);
-            res.redirect("/payment_error");
+            console.error("Error sending email:", error);
         }
-    } else {
-        res.redirect("/payment_error");
-    }
-});
+    };
+
+    const handlePaymentCallback = async () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const status = urlParams.get('status');
+        const txRef = urlParams.get('tx_ref');
+        const customerEmail = "{{ customer.email }}";
+        const customerName = "{{ customer.first_name }} {{ customer.last_name }}";
+        const totalPrice = "₦{{ total_price|floatformat:2 }}";
+        const productsList = "{{ products_list }}";
+
+        if (status === 'successful') {
+            alert("Payment was successful!");
+            await sendConfirmationEmail(customerEmail, txRef, customerName, totalPrice, productsList);
+            window.location.href = "/payment_success"; // Replace with actual success page URL
+        } else if (status === 'failed') {
+            alert("Payment failed! Please try again.");
+            window.location.href = "/payment_error"; // Replace with actual failure page URL
+        } else if (status === 'cancelled') {
+            alert("Payment was cancelled.");
+            window.location.href = "/payment_error"; // Replace with actual cancelled page URL
+        } else {
+            alert("Unknown payment status. Please contact support.");
+            window.location.href = "/payment_error"; // Replace with an error handling page URL
+        }
+    };
+
+    // Call the payment callback handler on page load
+    document.addEventListener("DOMContentLoaded", handlePaymentCallback);
 </script>
 {% endblock %}

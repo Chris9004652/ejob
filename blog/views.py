@@ -176,7 +176,7 @@ def checkout(request):
     customer_address = customer.address
     customer_name = f"{customer.first_name} {customer.last_name}"
     
-    
+    products_list = ', '.join([f"{item.product.title} x {item.quantity}" for item in items])
     
     
     
@@ -189,6 +189,7 @@ def checkout(request):
         'order_total': order_total,
         'customer_email': customer_email,
         'customer_name': customer_name,
+        'products_list': products_list,
         'customer_phone': customer_phone,
         'customer_address': customer_address,
         'tx_ref': f"txref-{random.randint(100000, 999999)}",
